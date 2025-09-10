@@ -1469,6 +1469,80 @@ impl<'a> Transaction<'a> {
             .into_map(|item| TextRangeWithModule::new(item.module, item.definition_range))
     }
 
+    pub fn goto_implementation(
+        &self,
+        handle: &Handle,
+        position: TextSize,
+    ) -> Vec<TextRangeWithModule> {
+        // For now, we implement go-to-implementation by finding implementations of the symbol at the cursor position
+        // This is a simplified implementation that finds:
+        // 1. Implementations of abstract methods in subclasses
+        // 2. Implementations of interface methods
+        // 3. Subclasses of a class
+        // 4. Concrete implementations of protocols
+        
+        let mut implementations = Vec::new();
+        
+        // First, find the definition of the symbol at the cursor position
+        let definitions = self.find_definition(handle, position, &FindPreference::default());
+        
+        for definition in definitions {
+            match &definition.metadata {
+                DefinitionMetadata::Variable(Some(symbol_kind)) => {
+                    match symbol_kind {
+                        // For classes, find subclasses that implement/extend this class
+                        SymbolKind::Class => {
+                            implementations.extend(self.find_class_implementations(&definition));
+                        }
+                        // For methods, find overriding implementations in subclasses
+                        SymbolKind::Method | SymbolKind::Function => {
+                            implementations.extend(self.find_method_implementations(&definition));
+                        }
+                        _ => {}
+                    }
+                }
+                DefinitionMetadata::Attribute(name) => {
+                    // For attributes that are methods, find implementations
+                    implementations.extend(self.find_attribute_implementations(&definition, name));
+                }
+                _ => {}
+            }
+        }
+        
+        implementations
+    }
+    
+    fn find_class_implementations(
+        &self,
+        _definition: &FindDefinitionItemWithDocstring,
+    ) -> Vec<TextRangeWithModule> {
+        // This is a simplified implementation that would need to be expanded
+        // In a full implementation, this would search the workspace for subclasses
+        // For now, we return empty as this requires more complex analysis
+        Vec::new()
+    }
+    
+    fn find_method_implementations(
+        &self,
+        _definition: &FindDefinitionItemWithDocstring,
+    ) -> Vec<TextRangeWithModule> {
+        // This is a simplified implementation that would need to be expanded
+        // In a full implementation, this would search for method overrides in subclasses
+        // For now, we return empty as this requires more complex analysis
+        Vec::new()
+    }
+    
+    fn find_attribute_implementations(
+        &self,
+        _definition: &FindDefinitionItemWithDocstring,
+        _name: &Name,
+    ) -> Vec<TextRangeWithModule> {
+        // This is a simplified implementation that would need to be expanded
+        // In a full implementation, this would search for attribute implementations
+        // For now, we return empty as this requires more complex analysis
+        Vec::new()
+    }
+
     /// This function should not be used for user-facing go-to-definition. However, it is exposed to
     /// tests so that we can test the behavior that's useful for find-refs.
     #[cfg(test)]
