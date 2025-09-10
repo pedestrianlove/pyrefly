@@ -155,6 +155,24 @@ impl TestServer {
         }));
     }
 
+    pub fn implementation(&mut self, file: &'static str, line: u32, col: u32) {
+        let path = self.get_root_or_panic().join(file);
+        let id = self.next_request_id();
+        self.send_message(Message::Request(Request {
+            id,
+            method: "textDocument/implementation".to_owned(),
+            params: serde_json::json!({
+                "textDocument": {
+                    "uri": Url::from_file_path(&path).unwrap().to_string(),
+                },
+                "position": {
+                    "line": line,
+                    "character": col,
+                },
+            }),
+        }));
+    }
+
     pub fn did_open(&self, file: &'static str) {
         let path = self.get_root_or_panic().join(file);
         self.send_message(Message::Notification(Notification {
@@ -369,6 +387,36 @@ impl TestClient {
                     "end": {"line": line_end, "character": char_end}
                 },
                 })),
+            error: None,
+        })
+    }
+
+    pub fn expect_implementation_response_from_root(
+        &self,
+        file: &'static str,
+        line_start: u32,
+        char_start: u32,
+        line_end: u32,
+        char_end: u32,
+    ) {
+        self.expect_response(Response {
+            id: RequestId::from(*self.request_idx.lock().unwrap()),
+            result: Some(serde_json::json!(
+            {
+                "uri": Url::from_file_path(self.get_root_or_panic().join(file)).unwrap().to_string(),
+                "range": {
+                    "start": {"line": line_start, "character": char_start},
+                    "end": {"line": line_end, "character": char_end}
+                },
+                })),
+            error: None,
+        })
+    }
+
+    pub fn expect_empty_implementation_response(&self) {
+        self.expect_response(Response {
+            id: RequestId::from(*self.request_idx.lock().unwrap()),
+            result: Some(serde_json::json!([])),
             error: None,
         })
     }
